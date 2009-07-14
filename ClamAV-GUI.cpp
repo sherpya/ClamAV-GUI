@@ -1,27 +1,29 @@
 /*
- * Clamav GUI Wrapper
- *
- * Copyright (c) 2006 Gianluigi Tiesi <sherpya@netfarm.it>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this software; if not, write to the
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- */
+* Clamav GUI Wrapper
+*
+* Copyright (c) 2006-2009 Gianluigi Tiesi <sherpya@netfarm.it>
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Library General Public
+* License as published by the Free Software Foundation; either
+* version 2 of the License, or (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+* Library General Public License for more details.
+*
+* You should have received a copy of the GNU Library General Public
+* License along with this software; if not, write to the
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+*/
 
 #include <ClamAV-GUI.h>
 #include <shlobj.h>
 #include <resource.h>
 #include <string>
+
+#define INIFILE ".\\ClamAV-GUI.ini"
 
 HWND MainDlg;
 BOOL isScanning = FALSE;
@@ -79,7 +81,7 @@ void WriteStdOut(LPSTR msg, BOOL freshclam)
 
     buff = buf = new char[length + slen];
     if(!buf) return;
-    
+
     GetWindowText(editw, buf, length);
     buf[length - 1] = 0;
 
@@ -102,13 +104,18 @@ void WriteStdOut(LPSTR msg, BOOL freshclam)
     std::string out;
     if (freshclam)
     {
-        char *start = buf, *sep = NULL;
-        while(sep = strchr(start, '\r'))
+        char o[2], *m, *m1;
+        o[1] = 0;
+        for (m = buf; *m; m++)
         {
-            *sep = 0;
-            out.append(start);
-            out.append("\r\n");
-            start = sep + 1;
+            m1 = m + 1;
+            if ((*m == '\r') && (!*m1 || (*m1 != '\n')))
+                out.append("\r\n");
+            else
+            {
+                o[0] = *m;
+                out.append(o);
+            }
         }
     }
     else
@@ -207,14 +214,13 @@ char *MakeCmdLine(UINT id)
                     }
                 }
             }
+            break;
         }
-        break;
         case IDC_UPDATE:
             cmdline.append(FRESHCLAM);
             break;
         default:
-             WriteStdOut("Bad request\r\n", FALSE);
-             return NULL;
+            return NULL;
     }
 
     char *cmd = new char[cmdline.size() + 1];
@@ -223,34 +229,93 @@ char *MakeCmdLine(UINT id)
     return cmd;
 }
 
+BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
+{
+    BOOL save = (BOOL) lParam;
+    DWORD id = GetWindowLong(hwnd, GWL_ID);
+    char key[5];
+    _itoa(id, key, 10);
+    switch (id)
+    {
+        case IDC_TARGET:
+        case IDC_CMDLINE:
+        {
+            char text[MAX_PATH] = "";
+            if (save)
+            {
+                GetWindowText(hwnd, text, MAX_PATH - 1);
+                WritePrivateProfileString("dialogs", key, text, INIFILE);
+            }
+            else
+            {
+                GetPrivateProfileString("dialogs", key, "", text, MAX_PATH - 1, INIFILE);
+                SetWindowText(hwnd, text);
+            }
+            break;
+        }
+        case IDC_ALLDRIVES:
+        case IDC_RECURSE:
+        case IDC_NOARCHIVES:
+        case IDC_ONLYINFECTED:
+        case IDC_REMOVE:
+        case IDC_NOMAIL:
+        case IDC_NOPE:
+        case IDC_NOOLE2:
+        case IDC_NOHTML:
+        {
+            INT def = (id == IDC_RECURSE) ? 1 : 0;
+            if (save)
+                WritePrivateProfileString("dialogs", key, (IsDlgButtonChecked(MainDlg, id) == BST_CHECKED) ? "1" : "0", INIFILE);
+            else
+            {
+                if (GetPrivateProfileInt("dialogs", key, def, INIFILE))
+                    CheckDlgButton(MainDlg, id, 1);
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    return TRUE;
+}
+
 INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch(uMsg)
     {
+        case WM_INITDIALOG:
+        {
+            HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON));
+            SendMessage(hwndDlg, WM_SETICON, WPARAM(ICON_SMALL), LPARAM (hIcon));
+            break;
+        }
+
         case WM_COMMAND:
         {
             if (HIWORD(wParam) == BN_CLICKED)
             {
                 switch (LOWORD(wParam))
                 {
-                    case IDC_SCAN:
-                    case IDC_UPDATE:
+                case IDC_SCAN:
+                case IDC_UPDATE:
                     {
-                        if (isScanning) return true;                     
+                        if (isScanning) return true;
                         isScanning = TRUE;
                         DWORD m_dwThreadId;
                         HANDLE m_hThread = CreateThread(NULL, 0, PipeToClamAV, (LPVOID) MakeCmdLine(LOWORD(wParam)), 0, &m_dwThreadId);
                         CloseHandle(m_hThread);
                         break;
                     }
-                    case IDC_CANCEL:
+                case IDC_CANCEL:
                     {
                         if (!isScanning) return true;
                         if (pi.hProcess != INVALID_HANDLE_VALUE)
                             TerminateProcess(pi.hProcess, -1);
                         break;
                     }
-                    case IDC_BROWSE:
+                case IDC_BROWSE:
                     {
                         if (isScanning) return true;
                         GetDestinationFolder();
@@ -263,6 +328,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
         {
             if (pi.hProcess != INVALID_HANDLE_VALUE)
                 TerminateProcess(pi.hProcess, -1);
+            EnumChildWindows(hwndDlg, EnumChildProc, (LPARAM) TRUE);
             DestroyWindow(hwndDlg);
             return true;
         }
@@ -274,6 +340,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
         default:
             return false;
     }
+    return true;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -285,7 +352,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     pi.hProcess = INVALID_HANDLE_VALUE;
     LogMutex = CreateMutex(NULL, FALSE, "ClamAVGuiLoggerMutex");
     MainDlg = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, DialogProc);
-    CheckDlgButton(MainDlg, IDC_RECURSE, BST_CHECKED);
+    EnumChildWindows(MainDlg, EnumChildProc, (LPARAM) FALSE);
 
     while (GetMessage(&msg, NULL, 0, 0))
     {

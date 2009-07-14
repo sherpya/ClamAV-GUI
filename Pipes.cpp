@@ -1,7 +1,7 @@
 /*
  * Clamav GUI Wrapper
  *
- * Copyright (c) 2006 Gianluigi Tiesi <sherpya@netfarm.it>
+ * Copyright (c) 2006-2009 Gianluigi Tiesi <sherpya@netfarm.it>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,7 +38,7 @@ void RedirectStdOutput(BOOL freshclam)
     if (!PeekNamedPipe(hChildStdoutRdDup, NULL, 0, NULL, &dwAvail, NULL) || !dwAvail)
         return;
     if (!ReadFile(hChildStdoutRdDup, chBuf, min(BUFSIZE - 1, dwAvail), &dwRead, NULL) || !dwRead)
-        return; 
+        return;
     chBuf[dwRead] = 0;
     WriteStdOut(chBuf, freshclam);
 }
@@ -49,16 +49,16 @@ DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
     HANDLE Handles[2];
     Handles[0] = pi.hProcess;
     Handles[1] = m_hEvtStop;
-    
+
     ResumeThread(pi.hThread);
 
-    while(1)    
+    while(1)
     {
         DWORD dwRc = WaitForMultipleObjects(2, Handles, FALSE, 100);
         RedirectStdOutput((BOOL) lpvThreadParam);
         if ((dwRc == WAIT_OBJECT_0) || (dwRc == WAIT_OBJECT_0 + 1) || (dwRc == WAIT_FAILED))
             break;
-    } 
+    }
     CloseHandle(hChildStdoutRdDup);
 
     sprintf(msg, "\r\nProcess exited with %d code\r\n", exitcode);
@@ -70,7 +70,7 @@ DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
 
 BOOL LaunchClamAV(LPSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
 {
-    
+
     STARTUPINFO si;
     ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     ZeroMemory(&si, sizeof(STARTUPINFO));
@@ -123,13 +123,13 @@ DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
 
     WriteStdOut(pszCmdLine, FALSE);
     WriteStdOut("\r\n\r\n", FALSE);
-    
+
     LaunchClamAV(pszCmdLine, hChildStdoutWr, hChildStderrWr);
     BOOL freshclam = !_strnicmp(pszCmdLine, "freshclam", 9);
     delete pszCmdLine;
     CloseHandle(hChildStdoutWr);
 
-    m_hEvtStop = CreateEvent(NULL, TRUE, FALSE, NULL);    
+    m_hEvtStop = CreateEvent(NULL, TRUE, FALSE, NULL);
     DWORD m_dwThreadId;
     HANDLE m_hThread = CreateThread(NULL, 0, OutputThread, (LPVOID) freshclam, 0, &m_dwThreadId);
 
