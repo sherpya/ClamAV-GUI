@@ -109,7 +109,7 @@ void WriteStdOut(LPSTR msg, BOOL freshclam)
         for (m = buf; *m; m++)
         {
             m1 = m + 1;
-            if ((*m == '\r') && (!*m1 || (*m1 != '\n')))
+            if ((*m == '\r') && (!m1 || (*m1 != '\n')))
                 out.append("\r\n");
             else
             {
@@ -298,8 +298,8 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
             {
                 switch (LOWORD(wParam))
                 {
-                case IDC_SCAN:
-                case IDC_UPDATE:
+                    case IDC_SCAN:
+                    case IDC_UPDATE:
                     {
                         if (isScanning) return true;
                         isScanning = TRUE;
@@ -308,14 +308,14 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
                         CloseHandle(m_hThread);
                         break;
                     }
-                case IDC_CANCEL:
+                    case IDC_CANCEL:
                     {
                         if (!isScanning) return true;
                         if (pi.hProcess != INVALID_HANDLE_VALUE)
                             TerminateProcess(pi.hProcess, -1);
                         break;
                     }
-                case IDC_BROWSE:
+                    case IDC_BROWSE:
                     {
                         if (isScanning) return true;
                         GetDestinationFolder();
