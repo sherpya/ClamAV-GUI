@@ -1,7 +1,45 @@
 #include <windows.h>
-#include <commctrl.h>
-#include <richedit.h>
 #include "resource.h"
+
+//
+// Dialog resources
+//
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+//
+// Version Information resources
+//
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,2,0,0
+ PRODUCTVERSION 1,2,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040004b0"
+        BEGIN
+            VALUE "FileDescription", "ClamAV GUI"
+            VALUE "FileVersion", "1, 3, 0, 0"
+            VALUE "InternalName", "ClamAV-GUI.exe"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2025 Gianluigi Tiesi"
+            VALUE "OriginalFilename", "ClamAV-GUI.exe"
+            VALUE "ProductName", "ClamAV GUI"
+            VALUE "ProductVersion", "1, 3, 0, 0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x400, 1200
+    END
+END
 
 //
 // Bitmap resources
@@ -9,15 +47,11 @@
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 IDB_BITMAP         BITMAP         "scan.bmp"
 
-//
-// Dialog resources
-//
-LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 IDD_MAIN DIALOGEX 0, 0, 420, 282
 STYLE DS_3DLOOK | DS_CENTER | DS_SHELLFONT | WS_VISIBLE | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_GROUP | WS_SYSMENU
-CAPTION "ClamAV GUI © 2006-2009 Gianluigi Tiesi"
+CAPTION "ClamAV GUI (c) 2006-2025 Gianluigi Tiesi"
 FONT 8, "MS Shell Dlg", 400, 0, 1
-{
+BEGIN
     DEFPUSHBUTTON   "Scan", IDC_SCAN, 329, 40, 84, 14
     EDITTEXT        IDC_TARGET, 7, 7, 378, 15, ES_AUTOHSCROLL
     DEFPUSHBUTTON   "...", IDC_BROWSE, 390, 7, 23, 15
@@ -34,43 +68,14 @@ FONT 8, "MS Shell Dlg", 400, 0, 1
     DEFPUSHBUTTON   "Cancel", IDC_CANCEL, 329, 89, 84, 14
     EDITTEXT        IDC_STATUS, 7, 110, 406, 139, WS_HSCROLL | WS_VSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY
     GROUPBOX        "Scan Options", IDC_STATIC, 7, 32, 110, 71, WS_GROUP
-    CONTROL         IDB_BITMAP, IDC_STATIC, WC_STATIC, SS_BITMAP | 0x00000800, 271, 49, 33, 31, WS_EX_STATICEDGE
+    CONTROL         IDB_BITMAP, IDC_STATIC, "Static", SS_BITMAP | 0x00000800, 271, 49, 33, 31, WS_EX_STATICEDGE
     DEFPUSHBUTTON   "Update", IDC_UPDATE, 329, 64, 84, 14
     EDITTEXT        IDC_CMDLINE, 7, 262, 406, 16, ES_AUTOHSCROLL
     LTEXT           "Additional Command Line Arguments", IDC_STATIC, 9, 252, 117, 8, SS_LEFT
-}
+END
 
 //
 // Icon resources
 //
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-IDI_ICON           ICON           "ClamAV-GUI.ico"
-
-//
-// Version Information resources
-//
-LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-VS_VERSION_INFO VERSIONINFO
-    FILEVERSION     1,2,0,0
-    PRODUCTVERSION  1,2,0,0
-    FILEOS          VOS__WINDOWS32
-    FILETYPE        VFT_UNKNOWN
-{
-    BLOCK "StringFileInfo"
-    {
-        BLOCK "000004b0"
-        {
-            VALUE "FileDescription", "ClamAV GUI"
-            VALUE "FileVersion", "1, 2, 0, 0"
-            VALUE "InternalName", "ClamAV-GUI.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2009 Gianluigi Tiesi"
-            VALUE "OriginalFilename", "ClamAV-GUI.exe"
-            VALUE "ProductName", "ClamAV GUI"
-            VALUE "ProductVersion", "1, 2, 0, 0"
-        }
-    }
-    BLOCK "VarFileInfo"
-    {
-        VALUE "Translation", 0, 1200
-    }
-}
+IDI_ICON           ICON           "clamav-gui.ico"

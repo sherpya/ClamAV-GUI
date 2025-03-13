@@ -1,7 +1,7 @@
 /*
- * Clamav GUI Wrapper
+ * Simple Clamav GUI
  *
- * Copyright (c) 2006-2009 Gianluigi Tiesi <sherpya@netfarm.it>
+ * Copyright (c) 2006-2025 Gianluigi Tiesi <sherpya@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,61 +18,79 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <ClamAV-GUI.h>
-#include <resource.h>
+#include "clamav-gui.h"
 
 #define BUFSIZE 1024
+#define BAIL_OUT(code)      \
+    {                       \
+        isScanning = false; \
+        return code;        \
+    }
 
-#define BAIL_OUT(code) { isScanning = FALSE; return code; }
-
-HANDLE m_hEvtStop;
-HANDLE hChildStdinWrDup = INVALID_HANDLE_VALUE, hChildStdoutRdDup = INVALID_HANDLE_VALUE;
+/* shared */
 PROCESS_INFORMATION pi;
-DWORD exitcode = 0;
 
-void RedirectStdOutput(BOOL freshclam)
+static HANDLE m_hEvtStop = NULL;
+static HANDLE hChildStdoutRdDup;
+static DWORD exitcode;
+
+void RedirectStdOutput()
 {
     char chBuf[BUFSIZE];
-    DWORD dwRead;
-    DWORD dwAvail = 0;
+    DWORD dwRead, dwAvail = 0;
+
     if (!PeekNamedPipe(hChildStdoutRdDup, NULL, 0, NULL, &dwAvail, NULL) || !dwAvail)
         return;
+
     if (!ReadFile(hChildStdoutRdDup, chBuf, min(BUFSIZE - 1, dwAvail), &dwRead, NULL) || !dwRead)
         return;
+
     chBuf[dwRead] = 0;
-    WriteStdOut(chBuf, freshclam);
+#ifdef UNICODE
+    WCHAR *chBufWide = malloc((dwRead + 1) * sizeof(WCHAR));
+    if (!chBufWide)
+        return;
+    if (!MultiByteToWideChar(CP_ACP, 0, chBuf, dwRead, chBufWide, dwRead))
+    {
+        free(chBufWide);
+        return;
+    }
+    chBufWide[dwRead] = 0;
+    WriteStdOut(chBufWide);
+    free(chBufWide);
+#else
+    WriteStdOut(chBuf);
+#endif
 }
 
 DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
 {
-    char msg[128];
-    HANDLE Handles[2];
-    Handles[0] = pi.hProcess;
-    Handles[1] = m_hEvtStop;
+    TCHAR msg[128];
+    HANDLE Handles[2] = {pi.hProcess, m_hEvtStop};
 
     ResumeThread(pi.hThread);
 
-    while(1)
+    while (true)
     {
         DWORD dwRc = WaitForMultipleObjects(2, Handles, FALSE, 100);
-        RedirectStdOutput((BOOL) lpvThreadParam);
+        RedirectStdOutput((BOOL)(UINT_PTR)lpvThreadParam);
         if ((dwRc == WAIT_OBJECT_0) || (dwRc == WAIT_OBJECT_0 + 1) || (dwRc == WAIT_FAILED))
             break;
     }
+
     CloseHandle(hChildStdoutRdDup);
 
-    sprintf(msg, "\r\nProcess exited with %d code\r\n", exitcode);
-    WriteStdOut(msg, FALSE);
+    _stprintf(msg, sizeof(msg) / sizeof(msg[0]), TEXT("\r\nProcess exited with %ld code\r\n"), exitcode);
+    WriteStdOut(msg);
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
-    isScanning = FALSE;
-    return 1;
+    isScanning = false;
+
+    return 0;
 }
 
-BOOL LaunchClamAV(LPSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
+bool LaunchClamAV(LPTSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
 {
-
     STARTUPINFO si;
-    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     ZeroMemory(&si, sizeof(STARTUPINFO));
     si.cb = sizeof(STARTUPINFO);
     si.hStdOutput = hStdOut;
@@ -80,64 +98,71 @@ BOOL LaunchClamAV(LPSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
     si.wShowWindow = SW_HIDE;
     si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     if (!CreateProcess(NULL, pszCmdLine,
-        NULL, NULL,
-        TRUE,
-        CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
-        NULL, NULL,
-        &si,
-        &pi))
+                       NULL, NULL,
+                       TRUE,
+                       CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
+                       NULL, NULL,
+                       &si,
+                       &pi))
         return FALSE;
 
     return TRUE;
 }
 
+/* Thread Proc */
 DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
 {
     HANDLE hChildStdoutRd, hChildStdoutWr, hChildStderrWr;
-    char *pszCmdLine = (char *) lpvThreadParam;
+    TCHAR *pszCmdLine = (TCHAR *)lpvThreadParam;
 
-    if (!pszCmdLine) BAIL_OUT(-1);
+    if (!pszCmdLine)
+        BAIL_OUT(1);
 
-    SECURITY_ATTRIBUTES saAttr;
-    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-    saAttr.bInheritHandle = TRUE;
-    saAttr.lpSecurityDescriptor = NULL;
+    SECURITY_ATTRIBUTES saAttr = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
 
     /* Create a pipe for the child process's STDOUT */
-    if(!CreatePipe(&hChildStdoutRd, &hChildStdoutWr, &saAttr, 0))
-        BAIL_OUT(-1);
+    if (!CreatePipe(&hChildStdoutRd, &hChildStdoutWr, &saAttr, 0))
+        BAIL_OUT(1);
 
-    /* Duplicate stdout sto stderr */
+    /* Duplicate stdout to stderr */
     if (!DuplicateHandle(GetCurrentProcess(), hChildStdoutWr, GetCurrentProcess(), &hChildStderrWr, 0, TRUE, DUPLICATE_SAME_ACCESS))
-        BAIL_OUT(-1);
+        BAIL_OUT(1);
 
     /* Duplicate the pipe HANDLE */
     if (!DuplicateHandle(GetCurrentProcess(), hChildStdoutRd, GetCurrentProcess(), &hChildStdoutRdDup, 0, FALSE, DUPLICATE_SAME_ACCESS))
-        BAIL_OUT(-1);
+        BAIL_OUT(1);
 
     CloseHandle(hChildStdoutRd);
 
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), FALSE);
-    SetWindowText(GetDlgItem(MainDlg, IDC_STATUS), "");
+    SetWindowText(GetDlgItem(MainDlg, IDC_STATUS), TEXT(""));
 
-    WriteStdOut(pszCmdLine, FALSE);
-    WriteStdOut("\r\n\r\n", FALSE);
+    WriteStdOut(pszCmdLine);
+    WriteStdOut(TEXT("\r\n\r\n"));
 
     LaunchClamAV(pszCmdLine, hChildStdoutWr, hChildStderrWr);
-    BOOL freshclam = !_strnicmp(pszCmdLine, "freshclam", 9);
-    delete pszCmdLine;
     CloseHandle(hChildStdoutWr);
 
     m_hEvtStop = CreateEvent(NULL, TRUE, FALSE, NULL);
+
     DWORD m_dwThreadId;
-    HANDLE m_hThread = CreateThread(NULL, 0, OutputThread, (LPVOID) freshclam, 0, &m_dwThreadId);
+    HANDLE m_hThread = CreateThread(NULL, 0, OutputThread, NULL, 0, &m_dwThreadId);
+
+    if (!m_hThread)
+        return 1;
 
     WaitForSingleObject(pi.hProcess, INFINITE);
     GetExitCodeProcess(pi.hProcess, &exitcode);
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
+
     pi.hProcess = INVALID_HANDLE_VALUE;
-    SetEvent(m_hEvtStop);
+
+    if (m_hEvtStop)
+        SetEvent(m_hEvtStop);
+
+    CloseHandle(m_hThread);
     return 0;
 }
