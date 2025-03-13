@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 project(ClamAV-GUI VERSION "1.3.0")
 
 option(UNICODE "Enable Unicode Build" ON)
@@ -29,4 +29,5 @@ endif()
 target_compile_definitions(ClamAV-GUI PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=_WIN32_WINNT_WINXP)
 target_include_directories(ClamAV-GUI PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ClamAV-GUI PRIVATE comctl32)
+set_property(TARGET ClamAV-GUI PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ClamAV-GUI)
