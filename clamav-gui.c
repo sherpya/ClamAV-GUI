@@ -182,7 +182,7 @@ TCHAR *MakeCmdLine(UINT id)
                 seek += _tcslen(szDrive) + 1;
 
                 /* Skip Drive A: but not other removable drives */
-                if (tolower(szDrive[0]) == TEXT('a'))
+                if (CharUpper(szDrive)[0] == TEXT('a'))
                     continue;
 
                 switch (GetDriveType(szDrive))
@@ -215,8 +215,10 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
 {
     BOOL save = (BOOL)lParam;
     DWORD id = GetWindowLong(hwnd, GWL_ID);
+
     TCHAR key[5];
-    _itot(id, key, 10);
+    wsprintf(key, TEXT("%d"), id);
+
     switch (id)
     {
     case IDC_TARGET:

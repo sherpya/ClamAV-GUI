@@ -80,7 +80,7 @@ DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
 
     CloseHandle(hChildStdoutRdDup);
 
-    _stprintf(msg, sizeof(msg) / sizeof(msg[0]), TEXT("\r\nProcess exited with %ld code\r\n"), exitcode);
+    wsprintf(msg, TEXT("\r\nProcess exited with %ld code\r\n"), exitcode);
     WriteStdOut(msg);
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
     isScanning = false;
