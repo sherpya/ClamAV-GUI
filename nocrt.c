@@ -32,10 +32,12 @@
 extern IMAGE_DOS_HEADER __ImageBase;
 
 #ifdef __GNUC__
-__attribute((externally_visible))
+__attribute__((used))
+#if defined(__i386__) || defined(_X86_)
+/* We need to make sure that we align the stack to 16 bytes for the sake of SSE
+   opts in main or in functions called from main.  */
+__attribute__((force_align_arg_pointer))
 #endif
-#ifdef __i686__
-__attribute((force_align_arg_pointer))
 #endif
 int
 #if defined(UNICODE) && defined(_MSC_VER)
@@ -50,13 +52,14 @@ WinMainCRTStartup(void)
     HINSTANCE hInstance = (HINSTANCE)&__ImageBase;
     int nCmdShow = si.wShowWindow;
 
-    return
+    int ret =
 #ifdef UNICODE
         wWinMain
 #else
         WinMain
 #endif
         (hInstance, NULL, GetCommandLine(), nCmdShow);
+    ExitProcess(ret);
 }
 
 void *malloc(size_t size)
