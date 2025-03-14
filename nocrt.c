@@ -38,7 +38,7 @@ __attribute((externally_visible))
 __attribute((force_align_arg_pointer))
 #endif
 int
-#ifdef UNICODE
+#if defined(UNICODE) && defined(_MSC_VER)
 wWinMainCRTStartup(void)
 #else
 WinMainCRTStartup(void)
