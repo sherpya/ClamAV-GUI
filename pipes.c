@@ -40,10 +40,14 @@ typedef struct _PIPEDATA
 static inline void FormatLastError(TCHAR *func)
 {
     TCHAR message[1024];
-    _tcsncat(message, func, _tcslen(func));
+    size_t length = sizeof(message) / sizeof(message[0]);
+
+    message[0] = 0;
+    _tcsncat(message, func, length - _tcslen(func));
     _tcsncat(message, TEXT(" failed: "), 9);
+
     size_t offset = _tcslen(message);
-    size_t length = sizeof(message) / sizeof(message[0]) - offset;
+    length -= offset;
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                   NULL, GetLastError(), 0, &message[offset], (DWORD)length, NULL);
     WriteStdOut(message);
