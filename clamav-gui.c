@@ -237,7 +237,7 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
             GetPrivateProfileString(TEXT("dialogs"), key, TEXT(""), text, MAX_PATH - 1, INIFILE);
             SetWindowText(hwnd, text);
         }
-        break;
+        return TRUE;
     }
     case IDC_ALLDRIVES:
     case IDC_RECURSE:
@@ -257,14 +257,12 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
             if (GetPrivateProfileInt(TEXT("dialogs"), key, def, INIFILE))
                 CheckDlgButton(MainDlg, id, 1);
         }
-        break;
+        return TRUE;
     }
 
     default:
-        break;
+        return FALSE;
     }
-
-    return TRUE;
 }
 
 INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -277,44 +275,52 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
     {
         HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON));
         SendMessage(hwndDlg, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
-        break;
+        return TRUE;
     }
 
     case WM_COMMAND:
     {
-        if (HIWORD(wParam) == BN_CLICKED)
+        if (HIWORD(wParam) != BN_CLICKED)
+            return FALSE;
+
+        switch (LOWORD(wParam))
         {
-            switch (LOWORD(wParam))
+        case IDC_SCAN:
+        case IDC_UPDATE:
+        {
+            if (isScanning)
+                return TRUE;
+
+            TCHAR* cmdline = MakeCmdLine(LOWORD(wParam));
+
+            if (cmdline)
             {
-            case IDC_SCAN:
-            case IDC_UPDATE:
-            {
-                if (isScanning)
-                    return true;
                 isScanning = true;
+
                 DWORD m_dwThreadId;
-                HANDLE m_hThread = CreateThread(NULL, 0, PipeToClamAV, (LPVOID)MakeCmdLine(LOWORD(wParam)), 0, &m_dwThreadId);
+                HANDLE m_hThread = CreateThread(NULL, 0, PipeToClamAV, (LPVOID)cmdline, 0, &m_dwThreadId);
                 if (m_hThread)
                     CloseHandle(m_hThread);
-                break;
             }
-            case IDC_CANCEL:
-            {
-                if (!isScanning)
-                    return true;
-                if (pi.hProcess != INVALID_HANDLE_VALUE)
-                    TerminateProcess(pi.hProcess, 1);
-                break;
-            }
-            case IDC_BROWSE:
-            {
-                if (isScanning)
-                    return true;
-                SelectScanFolder();
-            }
-            }
+            else
+                MessageBox(hwndDlg, TEXT("Command line creation failed"), TEXT("Error"), MB_OK);
+
+            return TRUE;
         }
-        return true;
+        case IDC_CANCEL:
+        {
+            if (isScanning && (pi.hProcess != INVALID_HANDLE_VALUE))
+                TerminateProcess(pi.hProcess, 1);
+            return TRUE;
+        }
+        case IDC_BROWSE:
+        {
+            if (!isScanning)
+                SelectScanFolder();
+            return TRUE;
+        }
+        }
+        return TRUE;
     }
     case WM_CLOSE:
     {
@@ -322,17 +328,16 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
             TerminateProcess(pi.hProcess, 1);
         EnumChildWindows(hwndDlg, EnumChildProc, (LPARAM)TRUE);
         DestroyWindow(hwndDlg);
-        return true;
+        return TRUE;
     }
     case WM_DESTROY:
     {
         PostQuitMessage(0); /* send a WM_QUIT to the message queue */
-        return true;
+        return TRUE;
     }
     default:
-        return false;
+        return FALSE;
     }
-    return true;
 }
 
 int APIENTRY
