@@ -72,15 +72,16 @@ void free(void *ptr)
     HeapFree(GetProcessHeap(), 0, ptr);
 }
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+#pragma function(memset)
+#endif
 void *memset(void *dest, register int val, register size_t len)
 {
     register unsigned char *ptr = (unsigned char *)dest;
     while (len-- > 0)
-        *ptr++ = val;
+        *ptr++ = val & 0xff;
     return dest;
 }
-#endif
 
 #ifdef UNICODE
 #define _tcslen wcslen
