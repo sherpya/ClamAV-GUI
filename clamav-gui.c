@@ -180,9 +180,10 @@ TCHAR *MakeCmdLine(UINT id)
                 szDrive[0] = 0;
                 _tcscat(szDrive, seek);
                 seek += _tcslen(szDrive) + 1;
+                TCHAR uDrive = CharUpper(szDrive)[0];
 
-                /* Skip Drive A: but not other removable drives */
-                if (CharUpper(szDrive)[0] == TEXT('a'))
+                /* Skip Drive A: and B: but not other removable drives */
+                if ((uDrive == TEXT('A')) || (uDrive == TEXT('B')))
                     continue;
 
                 switch (GetDriveType(szDrive))
