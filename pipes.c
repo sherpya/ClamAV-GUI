@@ -217,6 +217,7 @@ DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
     if (pipedata.EventStop)
         CloseHandle(pipedata.EventStop);
 
+    InterlockedExchange(&g_Busy, FALSE);
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
     EnableWindow(GetDlgItem(MainDlg, IDC_UPDATE), TRUE);
     return result;

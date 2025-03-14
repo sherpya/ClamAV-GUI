@@ -295,7 +295,10 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
         case IDC_UPDATE:
         {
             if (InterlockedCompareExchange(&g_Busy, TRUE, FALSE) == TRUE)
+            {
+                WriteStdOut(TEXT("BUSY!!\r\n"));
                 return TRUE;
+            }
 
             TCHAR *cmdline = MakeCmdLine(LOWORD(wParam));
             if (cmdline)
