@@ -261,7 +261,7 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
     }
 
     default:
-        return FALSE;
+        return TRUE;
     }
 }
 
