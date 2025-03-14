@@ -108,6 +108,12 @@ void WriteStdOut(LPTSTR msg)
     ReleaseMutex(LogMutex);
 }
 
+#define OOM()                                                          \
+    {                                                                  \
+        WriteStdOut(TEXT("Out of memory composing command line\r\n")); \
+        return NULL;                                                   \
+    }
+
 TCHAR *MakeCmdLine(UINT id)
 {
     static TCHAR cmdline[MAX_CMDLINE];
@@ -126,7 +132,7 @@ TCHAR *MakeCmdLine(UINT id)
             _tcsncat(cmdline, TEXT(" "), 1);
             size_t offset = _tcslen(cmdline);
             if ((offset + length) > (sizeof(cmdline) / sizeof(cmdline[0])))
-                return NULL;
+                OOM();
             GetWindowText(GetDlgItem(MainDlg, IDC_CMDLINE), &cmdline[offset], (int)length);
         }
 
@@ -149,11 +155,11 @@ TCHAR *MakeCmdLine(UINT id)
             }
 
             if ((_tcslen(cmdline) + length + 2) > (sizeof(cmdline) / sizeof(cmdline[0])))
-                return NULL;
+                OOM();
 
             TCHAR *path = malloc((length + 1) * sizeof(TCHAR));
             if (!path)
-                return NULL;
+                OOM();
 
             GetWindowText(GetDlgItem(MainDlg, IDC_TARGET), path, (int)length);
             path[length] = 0;
@@ -193,7 +199,7 @@ TCHAR *MakeCmdLine(UINT id)
                 case DRIVE_REMOTE:
                 case DRIVE_RAMDISK:
                     if ((_tcslen(cmdline) + _tcslen(szDrive) + 1) > (sizeof(cmdline) / sizeof(cmdline[0])))
-                        return NULL;
+                        OOM();
                     _tcsncat(cmdline, TEXT(" "), 1);
                     _tcsncat(cmdline, szDrive, MAX_CMDLINE - _tcslen(szDrive) - 1);
                     break;
@@ -291,7 +297,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
             if (InterlockedCompareExchange(&g_Busy, TRUE, FALSE) == TRUE)
                 return TRUE;
 
-            TCHAR* cmdline = MakeCmdLine(LOWORD(wParam));
+            TCHAR *cmdline = MakeCmdLine(LOWORD(wParam));
             if (cmdline)
             {
                 DWORD m_dwThreadId;
@@ -300,10 +306,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
                     CloseHandle(m_hThread);
             }
             else
-            {
-                MessageBox(hwndDlg, TEXT("Command line creation failed"), TEXT("Error"), MB_OK);
                 InterlockedExchange(&g_Busy, FALSE);
-            }
             return TRUE;
         }
         case IDC_CANCEL:
