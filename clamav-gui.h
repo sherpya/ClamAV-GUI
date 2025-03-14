@@ -9,7 +9,7 @@
 #include "resource.h"
 
 extern HWND MainDlg;
-extern bool isScanning;
+extern LONG g_Busy;
 
 extern PROCESS_INFORMATION pi;
 

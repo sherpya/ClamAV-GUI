@@ -31,7 +31,7 @@
 
 /* shared */
 HWND MainDlg = NULL;
-bool isScanning = false;
+LONG g_Busy = FALSE;
 
 static HANDLE LogMutex;
 
@@ -288,34 +288,34 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
         case IDC_SCAN:
         case IDC_UPDATE:
         {
-            if (isScanning)
+            if (InterlockedCompareExchange(&g_Busy, TRUE, FALSE) == TRUE)
                 return TRUE;
 
             TCHAR* cmdline = MakeCmdLine(LOWORD(wParam));
-
             if (cmdline)
             {
-                isScanning = true;
-
                 DWORD m_dwThreadId;
                 HANDLE m_hThread = CreateThread(NULL, 0, PipeToClamAV, (LPVOID)cmdline, 0, &m_dwThreadId);
                 if (m_hThread)
                     CloseHandle(m_hThread);
             }
             else
+            {
                 MessageBox(hwndDlg, TEXT("Command line creation failed"), TEXT("Error"), MB_OK);
-
+                InterlockedExchange(&g_Busy, FALSE);
+            }
             return TRUE;
         }
         case IDC_CANCEL:
         {
-            if (isScanning && (pi.hProcess != INVALID_HANDLE_VALUE))
+            if (InterlockedCompareExchange(&g_Busy, g_Busy, FALSE) == TRUE && (pi.hProcess != INVALID_HANDLE_VALUE))
                 TerminateProcess(pi.hProcess, 1);
             return TRUE;
         }
+
         case IDC_BROWSE:
         {
-            if (!isScanning)
+            if (InterlockedCompareExchange(&g_Busy, g_Busy, FALSE) == FALSE)
                 SelectScanFolder();
             return TRUE;
         }

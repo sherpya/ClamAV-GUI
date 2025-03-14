@@ -21,10 +21,10 @@
 #include "clamav-gui.h"
 
 #define BUFSIZE 1024
-#define BAIL_OUT(code)      \
-    {                       \
-        isScanning = false; \
-        return code;        \
+#define BAIL_OUT(code)                          \
+    {                                           \
+        InterlockedExchange(&g_Busy, FALSE);    \
+        return code;                            \
     }
 
 /* shared */
@@ -83,8 +83,7 @@ DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
     wsprintf(msg, TEXT("\r\nProcess exited with %ld code\r\n"), exitcode);
     WriteStdOut(msg);
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
-    isScanning = false;
-
+    InterlockedExchange(&g_Busy, FALSE);
     return 0;
 }
 
