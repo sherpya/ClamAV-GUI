@@ -40,13 +40,12 @@ __attribute((force_align_arg_pointer))
 int
 WinMainCRTStartup(void)
 {
-    STARTUPINFO StartupInfo;
-    memset(&StartupInfo, 0, sizeof(STARTUPINFO));
-    GetStartupInfo(&StartupInfo);
-
+    STARTUPINFO si;
+    ZeroMemory(&si, sizeof(si));
+    GetStartupInfo(&si);
     HINSTANCE hInstance = (HINSTANCE)&__ImageBase;
     LPSTR lpCmdLine = NULL; // GetCommandLine();
-    int nCmdShow = StartupInfo.wShowWindow;
+    int nCmdShow = si.wShowWindow;
 
     return WinMain(hInstance, NULL, lpCmdLine, nCmdShow);
 }
@@ -61,6 +60,8 @@ void free(void *ptr)
     HeapFree(GetProcessHeap(), 0, ptr);
 }
 
+#if 0
+#pragma function(memset)
 void *memset(void *dest, register int val, register size_t len)
 {
     register unsigned char *ptr = (unsigned char *)dest;
@@ -68,25 +69,33 @@ void *memset(void *dest, register int val, register size_t len)
         *ptr++ = val;
     return dest;
 }
+#endif
 
 #ifdef UNICODE
 #define _tcslen wcslen
-#define _tcsncat wcsncat
 #define _tcscat wcscat
+#define _tcscpy wcscpy
+#define _tcsncat wcsncat
 #define _tcsnccmp wcsncmp
 #define _tcsstr wcsstr
 #define _tcschr wcschr
-#define _tcscpy wcscpy
 #else
 #define _tcslen strlen
-#define _tcsncat strncat
 #define _tcscat strcat
+#define _tcscpy strcpy
+#define _tcsncat strncat
 #define _tcsnccmp strncmp
 #define _tcsstr strstr
 #define _tcschr strchr
-#define _tcscpy strcpy
+
+#ifdef _MSC_VER
+#define strncat _mbsnbcat
+#define strchr _mbschr
+#define strstr _mbsstr
+#endif
 #endif
 
+#ifndef _MSC_VER
 size_t _tcslen(const TCHAR *str)
 {
     const TCHAR *ptr = str;
@@ -95,6 +104,25 @@ size_t _tcslen(const TCHAR *str)
 
     return str - ptr;
 }
+
+TCHAR* _tcscat(TCHAR* s, const TCHAR* append)
+{
+    TCHAR* save = s;
+    for (; *s; ++s)
+        ;
+    while ((*s++ = *append++) != '\0')
+        ;
+    return save;
+}
+
+TCHAR* _tcscpy(TCHAR* to, const TCHAR* from)
+{
+    TCHAR* save = to;
+    for (; (*to = *from) != '\0'; ++from, ++to)
+        ;
+    return save;
+}
+#endif
 
 TCHAR *_tcsncat(TCHAR *dst, const TCHAR *src, size_t n)
 {
@@ -113,16 +141,6 @@ TCHAR *_tcsncat(TCHAR *dst, const TCHAR *src, size_t n)
         *d = 0;
     }
     return dst;
-}
-
-TCHAR *_tcscat(TCHAR *s, const TCHAR *append)
-{
-    TCHAR *save = s;
-    for (; *s; ++s)
-        ;
-    while ((*s++ = *append++) != '\0')
-        ;
-    return save;
 }
 
 int _tcsnccmp(const TCHAR *s1, const TCHAR *s2, size_t n)
@@ -172,12 +190,4 @@ char *strchr(const char *p, int ch)
         if (!*p)
             return NULL;
     }
-}
-
-TCHAR *_tcscpy(TCHAR *to, const TCHAR *from)
-{
-    TCHAR *save = to;
-    for (; (*to = *from) != '\0'; ++from, ++to)
-        ;
-    return save;
 }

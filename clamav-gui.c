@@ -224,7 +224,8 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
     case IDC_TARGET:
     case IDC_CMDLINE:
     {
-        TCHAR text[MAX_PATH] = {0};
+        TCHAR text[MAX_PATH];
+        text[0] = 0;
         if (save)
         {
             GetWindowText(hwnd, text, MAX_PATH - 1);

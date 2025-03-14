@@ -49,9 +49,10 @@ IDB_BITMAP         BITMAP         "scan.bmp"
 
 IDD_MAIN DIALOGEX 0, 0, 420, 282
 STYLE DS_3DLOOK | DS_CENTER | DS_SHELLFONT | WS_VISIBLE | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_GROUP | WS_SYSMENU
+#ifdef UNICODE
 CAPTION "ClamAV GUI (c) 2006-2025 Gianluigi Tiesi"
-#ifndef UNICODE
-" (ANSI build)"
+#else
+CAPTION "ClamAV GUI (c) 2006-2025 Gianluigi Tiesi (ANSI build)"
 #endif
 FONT 8, "MS Shell Dlg", 400, 0, 1
 BEGIN

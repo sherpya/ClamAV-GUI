@@ -34,12 +34,16 @@ if(FREESTANDING)
     target_sources(ClamAV-GUI PRIVATE ${CMAKE_SOURCE_DIR}/nocrt.c)
     target_link_options(ClamAV-GUI PRIVATE
         $<$<CXX_COMPILER_ID:GNU>:-fno-builtin -Wl,--gc-sections -nostdlib -mwindows -fno-asynchronous-unwind-tables>
+        $<$<CXX_COMPILER_ID:MSVC>:/NODEFAULTLIB>
+    )
+    target_compile_options(ClamAV-GUI PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/GS->
     )
     target_link_libraries(ClamAV-GUI PRIVATE kernel32 user32 shell32)
 endif()
 
+set_property(TARGET ClamAV-GUI PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 target_compile_definitions(ClamAV-GUI PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=_WIN32_WINNT_WINXP)
 target_include_directories(ClamAV-GUI PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ClamAV-GUI PRIVATE comctl32)
-set_property(TARGET ClamAV-GUI PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ClamAV-GUI)
