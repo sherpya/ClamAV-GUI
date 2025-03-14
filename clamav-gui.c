@@ -131,7 +131,7 @@ TCHAR *MakeCmdLine(UINT id)
         {
             _tcsncat(cmdline, TEXT(" "), 1);
             size_t offset = _tcslen(cmdline);
-            if ((offset + length) > (sizeof(cmdline) / sizeof(cmdline[0])))
+            if ((offset + length) > MAX_CMDLINE)
                 OOM();
             GetWindowText(GetDlgItem(MainDlg, IDC_CMDLINE), &cmdline[offset], (int)length);
         }
@@ -154,7 +154,7 @@ TCHAR *MakeCmdLine(UINT id)
                 return NULL;
             }
 
-            if ((_tcslen(cmdline) + length + 2) > (sizeof(cmdline) / sizeof(cmdline[0])))
+            if ((_tcslen(cmdline) + length + 2) > MAX_CMDLINE)
                 OOM();
 
             TCHAR *path = malloc((length + 1) * sizeof(TCHAR));
@@ -198,7 +198,7 @@ TCHAR *MakeCmdLine(UINT id)
                 case DRIVE_FIXED:
                 case DRIVE_REMOTE:
                 case DRIVE_RAMDISK:
-                    if ((_tcslen(cmdline) + _tcslen(szDrive) + 1) > (sizeof(cmdline) / sizeof(cmdline[0])))
+                    if ((_tcslen(cmdline) + _tcslen(szDrive) + 1) > MAX_CMDLINE)
                         OOM();
                     _tcsncat(cmdline, TEXT(" "), 1);
                     _tcsncat(cmdline, szDrive, MAX_CMDLINE - _tcslen(szDrive) - 1);
