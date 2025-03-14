@@ -107,7 +107,9 @@ void *memset(void *dest, register int val, register size_t len)
 #endif
 #endif
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+#pragma function(_tcslen)
+#endif
 size_t _tcslen(const TCHAR *str)
 {
     const TCHAR *ptr = str;
@@ -117,6 +119,9 @@ size_t _tcslen(const TCHAR *str)
     return str - ptr;
 }
 
+#ifdef _MSC_VER
+#pragma function(_tcscat)
+#endif
 TCHAR *_tcscat(TCHAR *s, const TCHAR *append)
 {
     TCHAR *save = s;
@@ -127,6 +132,9 @@ TCHAR *_tcscat(TCHAR *s, const TCHAR *append)
     return save;
 }
 
+#ifdef _MSC_VER
+#pragma function(_tcscpy)
+#endif
 TCHAR *_tcscpy(TCHAR *to, const TCHAR *from)
 {
     TCHAR *save = to;
@@ -134,7 +142,6 @@ TCHAR *_tcscpy(TCHAR *to, const TCHAR *from)
         ;
     return save;
 }
-#endif
 
 TCHAR *_tcsncat(TCHAR *dst, const TCHAR *src, size_t n)
 {

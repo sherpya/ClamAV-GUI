@@ -40,6 +40,7 @@ if(FREESTANDING)
         $<$<CXX_COMPILER_ID:MSVC>:/GS->
     )
     target_link_libraries(ClamAV-GUI PRIVATE kernel32 user32 shell32)
+    string(REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
 endif()
 
 set_property(TARGET ClamAV-GUI PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
