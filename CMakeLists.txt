@@ -33,7 +33,7 @@ endif()
 if(FREESTANDING)
     target_sources(ClamAV-GUI PRIVATE ${CMAKE_SOURCE_DIR}/nocrt.c)
     target_link_options(ClamAV-GUI PRIVATE
-        $<$<CXX_COMPILER_ID:GNU>:-fno-builtin -Wl,--gc-sections -nostdlib -mwindows -fno-asynchronous-unwind-tables>
+        $<$<CXX_COMPILER_ID:GNU>:-Wl,--gc-sections -nostdlib -mwindows -fno-asynchronous-unwind-tables>
         $<$<CXX_COMPILER_ID:MSVC>:/NODEFAULTLIB>
     )
     target_compile_options(ClamAV-GUI PRIVATE
