@@ -21,22 +21,23 @@
 #include "clamav-gui.h"
 
 #define BUFSIZE 1024
-#define BAIL_OUT(code)                          \
-    {                                           \
-        InterlockedExchange(&g_Busy, FALSE);    \
-        return code;                            \
+#define BAIL_OUT(code)                       \
+    {                                        \
+        InterlockedExchange(&g_Busy, FALSE); \
+        return code;                         \
     }
 
 /* shared */
 PROCESS_INFORMATION pi;
 static DWORD exitcode;
 
-typedef struct _PIPEDATA {
+typedef struct _PIPEDATA
+{
     HANDLE EventStop;
     HANDLE Pipe;
 } PIPEDATA;
 
-static inline void FormatLastError(TCHAR* func)
+static inline void FormatLastError(TCHAR *func)
 {
     TCHAR message[1024];
     _tcsncat(message, func, _tcslen(func));
@@ -44,11 +45,11 @@ static inline void FormatLastError(TCHAR* func)
     size_t offset = _tcslen(message);
     size_t length = sizeof(message) / sizeof(message[0]) - offset;
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, GetLastError(), 0, &message[offset], (DWORD)length, NULL);
+                  NULL, GetLastError(), 0, &message[offset], (DWORD)length, NULL);
     WriteStdOut(message);
 }
 
-void RedirectStdOutput(PIPEDATA* pipedata)
+void RedirectStdOutput(PIPEDATA *pipedata)
 {
     char chBuf[BUFSIZE];
     DWORD dwRead, dwAvail = 0;
@@ -80,7 +81,7 @@ void RedirectStdOutput(PIPEDATA* pipedata)
 /* thread proc */
 DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
 {
-    PIPEDATA* pipedata = (PIPEDATA*)lpvThreadParam;
+    PIPEDATA *pipedata = (PIPEDATA *)lpvThreadParam;
     HANDLE Handles[2] = {pi.hProcess, pipedata->EventStop};
 
     SetThreadName("Output Thread");
@@ -115,12 +116,12 @@ bool LaunchClamAV(LPTSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
 
     ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     if (!CreateProcess(NULL, pszCmdLine,
-        NULL, NULL,
-        TRUE,
-        CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
-        NULL, NULL,
-        &si,
-        &pi))
+                       NULL, NULL,
+                       TRUE,
+                       CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
+                       NULL, NULL,
+                       &si,
+                       &pi))
     {
         FormatLastError(TEXT("CreateProcess"));
         return false;
@@ -135,7 +136,7 @@ DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
     DWORD result = FALSE;
     HANDLE hChildStdoutRd, hChildStdoutWr, hChildStderrWr;
     TCHAR *pszCmdLine = (TCHAR *)lpvThreadParam;
-    PIPEDATA pipedata = { NULL, NULL };
+    PIPEDATA pipedata = {NULL, NULL};
 
     SetThreadName("Pipe Thread");
 
@@ -174,7 +175,8 @@ DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
     WriteStdOut(pszCmdLine);
     WriteStdOut(TEXT("\r\n\r\n"));
 
-    do {
+    do
+    {
         if (!LaunchClamAV(pszCmdLine, hChildStdoutWr, hChildStderrWr))
             break;
 
