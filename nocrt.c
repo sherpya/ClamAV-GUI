@@ -38,16 +38,25 @@ __attribute((externally_visible))
 __attribute((force_align_arg_pointer))
 #endif
 int
+#ifdef UNICODE
+wWinMainCRTStartup(void)
+#else
 WinMainCRTStartup(void)
+#endif
 {
     STARTUPINFO si;
     ZeroMemory(&si, sizeof(si));
     GetStartupInfo(&si);
     HINSTANCE hInstance = (HINSTANCE)&__ImageBase;
-    LPSTR lpCmdLine = NULL; // GetCommandLine();
     int nCmdShow = si.wShowWindow;
 
-    return WinMain(hInstance, NULL, lpCmdLine, nCmdShow);
+    return
+#ifdef UNICODE
+        wWinMain
+#else
+        WinMain
+#endif
+        (hInstance, NULL, GetCommandLine(), nCmdShow);
 }
 
 void *malloc(size_t size)
@@ -105,9 +114,9 @@ size_t _tcslen(const TCHAR *str)
     return str - ptr;
 }
 
-TCHAR* _tcscat(TCHAR* s, const TCHAR* append)
+TCHAR *_tcscat(TCHAR *s, const TCHAR *append)
 {
-    TCHAR* save = s;
+    TCHAR *save = s;
     for (; *s; ++s)
         ;
     while ((*s++ = *append++) != '\0')
@@ -115,9 +124,9 @@ TCHAR* _tcscat(TCHAR* s, const TCHAR* append)
     return save;
 }
 
-TCHAR* _tcscpy(TCHAR* to, const TCHAR* from)
+TCHAR *_tcscpy(TCHAR *to, const TCHAR *from)
 {
-    TCHAR* save = to;
+    TCHAR *save = to;
     for (; (*to = *from) != '\0'; ++from, ++to)
         ;
     return save;
