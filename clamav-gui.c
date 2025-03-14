@@ -355,6 +355,7 @@ WinMain
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
 
+    SetThreadName("Main Thread");
     pi.hProcess = INVALID_HANDLE_VALUE;
     LogMutex = CreateMutex(NULL, FALSE, TEXT("ClamAVGuiLoggerMutex"));
     MainDlg = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, DialogProc);

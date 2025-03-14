@@ -16,4 +16,10 @@ extern PROCESS_INFORMATION pi;
 extern void WriteStdOut(LPTSTR msg);
 extern DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam);
 
+#ifdef _DEBUG
+#define SetThreadName(s) SetThreadDescription(GetCurrentThread(), TEXT(##s))
+#else
+#define SetThreadName(s)
+#endif
+
 #endif // _CLAMAV_GUI_H__

@@ -29,20 +29,34 @@
 
 /* shared */
 PROCESS_INFORMATION pi;
-
-static HANDLE m_hEvtStop = NULL;
-static HANDLE hChildStdoutRdDup;
 static DWORD exitcode;
 
-void RedirectStdOutput()
+typedef struct _PIPEDATA {
+    HANDLE EventStop;
+    HANDLE Pipe;
+} PIPEDATA;
+
+static inline void FormatLastError(TCHAR* func)
+{
+    TCHAR message[1024];
+    _tcsncat(message, func, _tcslen(func));
+    _tcsncat(message, TEXT(" failed: "), 9);
+    size_t offset = _tcslen(message);
+    size_t length = sizeof(message) / sizeof(message[0]) - offset;
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, GetLastError(), 0, &message[offset], (DWORD)length, NULL);
+    WriteStdOut(message);
+}
+
+void RedirectStdOutput(PIPEDATA* pipedata)
 {
     char chBuf[BUFSIZE];
     DWORD dwRead, dwAvail = 0;
 
-    if (!PeekNamedPipe(hChildStdoutRdDup, NULL, 0, NULL, &dwAvail, NULL) || !dwAvail)
+    if (!PeekNamedPipe(pipedata->Pipe, NULL, 0, NULL, &dwAvail, NULL) || !dwAvail)
         return;
 
-    if (!ReadFile(hChildStdoutRdDup, chBuf, min(BUFSIZE - 1, dwAvail), &dwRead, NULL) || !dwRead)
+    if (!ReadFile(pipedata->Pipe, chBuf, min(BUFSIZE - 1, dwAvail), &dwRead, NULL) || !dwRead)
         return;
 
     chBuf[dwRead] = 0;
@@ -63,25 +77,27 @@ void RedirectStdOutput()
 #endif
 }
 
+/* thread proc */
 DWORD WINAPI OutputThread(LPVOID lpvThreadParam)
 {
-    TCHAR msg[128];
-    HANDLE Handles[2] = {pi.hProcess, m_hEvtStop};
+    PIPEDATA* pipedata = (PIPEDATA*)lpvThreadParam;
+    HANDLE Handles[2] = {pi.hProcess, pipedata->EventStop};
 
+    SetThreadName("Output Thread");
     ResumeThread(pi.hThread);
 
     while (true)
     {
         DWORD dwRc = WaitForMultipleObjects(2, Handles, FALSE, 100);
-        RedirectStdOutput((BOOL)(UINT_PTR)lpvThreadParam);
+        RedirectStdOutput(pipedata);
         if ((dwRc == WAIT_OBJECT_0) || (dwRc == WAIT_OBJECT_0 + 1) || (dwRc == WAIT_FAILED))
             break;
     }
 
-    CloseHandle(hChildStdoutRdDup);
-
+    TCHAR msg[128];
     wsprintf(msg, TEXT("\r\nProcess exited with %ld code\r\n"), exitcode);
     WriteStdOut(msg);
+
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
     InterlockedExchange(&g_Busy, FALSE);
     return 0;
@@ -99,69 +115,103 @@ bool LaunchClamAV(LPTSTR pszCmdLine, HANDLE hStdOut, HANDLE hStdErr)
 
     ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     if (!CreateProcess(NULL, pszCmdLine,
-                       NULL, NULL,
-                       TRUE,
-                       CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
-                       NULL, NULL,
-                       &si,
-                       &pi))
-        return FALSE;
+        NULL, NULL,
+        TRUE,
+        CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
+        NULL, NULL,
+        &si,
+        &pi))
+    {
+        FormatLastError(TEXT("CreateProcess"));
+        return false;
+    }
 
-    return TRUE;
+    return true;
 }
 
-/* Thread Proc */
+/* thread proc */
 DWORD WINAPI PipeToClamAV(LPVOID lpvThreadParam)
 {
+    DWORD result = FALSE;
     HANDLE hChildStdoutRd, hChildStdoutWr, hChildStderrWr;
     TCHAR *pszCmdLine = (TCHAR *)lpvThreadParam;
+    PIPEDATA pipedata = { NULL, NULL };
+
+    SetThreadName("Pipe Thread");
 
     if (!pszCmdLine)
-        BAIL_OUT(1);
+        BAIL_OUT(FALSE);
 
     SECURITY_ATTRIBUTES saAttr = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
 
     /* Create a pipe for the child process's STDOUT */
     if (!CreatePipe(&hChildStdoutRd, &hChildStdoutWr, &saAttr, 0))
-        BAIL_OUT(1);
+        BAIL_OUT(FALSE);
 
     /* Duplicate stdout to stderr */
     if (!DuplicateHandle(GetCurrentProcess(), hChildStdoutWr, GetCurrentProcess(), &hChildStderrWr, 0, TRUE, DUPLICATE_SAME_ACCESS))
-        BAIL_OUT(1);
+    {
+        CloseHandle(hChildStdoutRd);
+        CloseHandle(hChildStdoutWr);
+        BAIL_OUT(FALSE);
+    }
 
     /* Duplicate the pipe HANDLE */
-    if (!DuplicateHandle(GetCurrentProcess(), hChildStdoutRd, GetCurrentProcess(), &hChildStdoutRdDup, 0, FALSE, DUPLICATE_SAME_ACCESS))
-        BAIL_OUT(1);
+    if (!DuplicateHandle(GetCurrentProcess(), hChildStdoutRd, GetCurrentProcess(), &pipedata.Pipe, 0, FALSE, DUPLICATE_SAME_ACCESS))
+    {
+        CloseHandle(hChildStdoutRd);
+        CloseHandle(hChildStdoutWr);
+        CloseHandle(hChildStderrWr);
+        BAIL_OUT(FALSE);
+    }
 
     CloseHandle(hChildStdoutRd);
 
     EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), FALSE);
+    EnableWindow(GetDlgItem(MainDlg, IDC_UPDATE), FALSE);
     SetWindowText(GetDlgItem(MainDlg, IDC_STATUS), TEXT(""));
 
     WriteStdOut(pszCmdLine);
     WriteStdOut(TEXT("\r\n\r\n"));
 
-    LaunchClamAV(pszCmdLine, hChildStdoutWr, hChildStderrWr);
+    do {
+        if (!LaunchClamAV(pszCmdLine, hChildStdoutWr, hChildStderrWr))
+            break;
+
+        if (!(pipedata.EventStop = CreateEvent(NULL, TRUE, FALSE, NULL)))
+        {
+            FormatLastError(TEXT("CreateEvent"));
+            break;
+        }
+
+        DWORD dwThreadId;
+        HANDLE hThread = CreateThread(NULL, 0, OutputThread, &pipedata, 0, &dwThreadId);
+
+        if (!hThread)
+        {
+            FormatLastError(TEXT("CreateThread"));
+            break;
+        }
+
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        pi.hProcess = INVALID_HANDLE_VALUE;
+        SetEvent(pipedata.EventStop);
+        WaitForSingleObject(hThread, INFINITE);
+        CloseHandle(hThread);
+        result = TRUE;
+        break;
+    } while (0);
+
     CloseHandle(hChildStdoutWr);
+    CloseHandle(hChildStderrWr);
+    CloseHandle(pipedata.Pipe);
+    if (pipedata.EventStop)
+        CloseHandle(pipedata.EventStop);
 
-    m_hEvtStop = CreateEvent(NULL, TRUE, FALSE, NULL);
-
-    DWORD m_dwThreadId;
-    HANDLE m_hThread = CreateThread(NULL, 0, OutputThread, NULL, 0, &m_dwThreadId);
-
-    if (!m_hThread)
-        return 1;
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    GetExitCodeProcess(pi.hProcess, &exitcode);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-
-    pi.hProcess = INVALID_HANDLE_VALUE;
-
-    if (m_hEvtStop)
-        SetEvent(m_hEvtStop);
-
-    CloseHandle(m_hThread);
-    return 0;
+    EnableWindow(GetDlgItem(MainDlg, IDC_SCAN), TRUE);
+    EnableWindow(GetDlgItem(MainDlg, IDC_UPDATE), TRUE);
+    return result;
 }
